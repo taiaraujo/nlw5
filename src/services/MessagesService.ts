@@ -1,5 +1,8 @@
-import { getCustomRepository } from "typeorm";
+import { getCustomRepository, Repository } from "typeorm";
+import { Message } from "../entities/Message";
+import { User } from "../entities/User";
 import { MessagesRepository } from "../repositories/MessagesRepository";
+import { UsersRepository } from "../repositories/UsersRepository";
 
 interface IMessageCreate {
   admin_id ? : string;
@@ -9,17 +12,41 @@ interface IMessageCreate {
 
 
 class MessagesService {
-  async create({ admin_id, text, user_id }: IMessageCreate){
-    const messagesRepository = getCustomRepository(MessagesRepository);
 
-    const message = messagesRepository.create({
+  private messagesRepository: Repository<Message>;
+  private usersRepository: Repository<User>;
+
+  constructor(){
+    this.messagesRepository = getCustomRepository(MessagesRepository);
+    this.usersRepository = getCustomRepository(UsersRepository);
+  }
+
+  async create({ admin_id, text, user_id }: IMessageCreate){
+    const userAlreadyExists = await this.usersRepository.findOne({ 
+      id: user_id 
+    });
+
+    if(!userAlreadyExists){
+      throw new Error ("User not found!")
+    }
+
+    const message = this.messagesRepository.create({
       admin_id,
       text,
       user_id
     })
-    await messagesRepository.save(message)
 
+    await this.messagesRepository.save(message)
     return message;
+  }
+
+  async listByUser(user_id: string){    
+    const list= await this.messagesRepository.find({
+      where: {user_id},
+      relations: ["user"]
+    })
+
+    return list;
   }
 }
 
